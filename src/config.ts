@@ -6,7 +6,7 @@ import { join } from "node:path";
 import type { Config, Budget } from "./types.js";
 import { readJsonSafe } from "./util.js";
 
-const NO_CAP: Budget = { usd: null, tokens: null };
+const NO_CAP: Budget = { usd: null };
 
 /**
  * Defaults are deliberately conservative and observe-only. The first session
@@ -15,8 +15,8 @@ const NO_CAP: Budget = { usd: null, tokens: null };
 export const DEFAULT_CONFIG: Config = {
   mode: "observe",
   budgets: {
-    session: { usd: 5, tokens: null },
-    daily: { usd: 25, tokens: null },
+    session: { usd: 5 },
+    daily: { usd: 25 },
     project: { ...NO_CAP },
     perModel: {},
   },
@@ -35,7 +35,6 @@ export const DEFAULT_CONFIG: Config = {
     bashMaxTimeoutMs: 600000,
   },
   pricingOverrides: {},
-  countSubagentSpend: true,
 };
 
 /** Deep-merge a partial config over a base, one level into nested objects. */
@@ -53,7 +52,6 @@ function merge(base: Config, over: Partial<Config> | undefined): Config {
     escalation: { ...base.escalation, ...over.escalation },
     bloat: { ...base.bloat, ...over.bloat },
     pricingOverrides: { ...base.pricingOverrides, ...over.pricingOverrides },
-    countSubagentSpend: over.countSubagentSpend ?? base.countSubagentSpend,
   };
 }
 

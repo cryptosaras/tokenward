@@ -320,11 +320,12 @@ const STARTER_CONFIG = `{
   "// mode": "observe = log what WOULD block (safe). enforce = actually block.",
   "mode": "observe",
 
+  "// budgets": "USD caps; null = no cap. v0.1 enforces dollar caps only.",
   "budgets": {
-    "session": { "usd": 5, "tokens": null },
-    "daily": { "usd": 25, "tokens": null },
-    "project": { "usd": null, "tokens": null },
-    "// perModel": "cap by model-id substring, e.g. { \\"opus\\": { \\"usd\\": 10, \\"tokens\\": null } }",
+    "session": { "usd": 5 },
+    "daily": { "usd": 25 },
+    "project": { "usd": null },
+    "// perModel": "cap by model-id substring, e.g. { \\"opus\\": { \\"usd\\": 10 } }",
     "perModel": {}
   },
 
@@ -350,10 +351,7 @@ const STARTER_CONFIG = `{
   },
 
   "// pricingOverrides": "negotiated per-MTok rates keyed by model id",
-  "pricingOverrides": {},
-
-  "// countSubagentSpend": "subagent (isSidechain) spend counts toward parent budget",
-  "countSubagentSpend": true
+  "pricingOverrides": {}
 }
 `;
 

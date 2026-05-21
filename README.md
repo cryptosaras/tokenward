@@ -39,7 +39,7 @@ echo '{"mode":"enforce"}' > ~/.tokenwarden.json
 
 ### 1. Hard budget gate
 
-Per-session, per-day, per-project, and per-model USD and token caps enforced via `PreToolUse` and `UserPromptSubmit` hooks. When cumulative spend reaches a cap, the hook returns a block decision and the reason is shown to the model and user.
+Per-session, per-day, per-project, and per-model **USD caps** enforced via `PreToolUse` and `UserPromptSubmit` hooks. When cumulative spend reaches a cap, the hook returns a block decision and the reason is shown to the model and user. (v0.1 enforces dollar caps; the reliable live signal is `cost.total_cost_usd`, not a cumulative token count.)
 
 ```
 tokenwarden: session budget reached — spent $8.50 of $5.00. Run /compact, start a
@@ -100,7 +100,7 @@ Tokenwarden registers handlers for these Claude Code hook events:
 **Operational guarantees:**
 
 - **Fail-open:** any internal error in a hook exits 0 (proceed). Tokenwarden never blocks your work because of its own bug.
-- **Hot-path performance:** hooks complete in well under 100 ms in practice (~50 ms measured cold-start from a single bundled file), comfortably inside the <250 ms budget. A hard 2 s self-timeout guarantees a hung hook still fails open. The ledger is a small local JSON file read in O(1) — no JSONL re-scanning on each hook call.
+- **Hot-path performance:** hooks complete in well under 100 ms in practice (~50 ms measured cold-start from a single bundled file), comfortably inside the <250 ms budget. A hard 2 s self-timeout guarantees a hung hook still fails open. The ledger is a small local JSON file read in O(1) — no JSONL re-scanning on each hook call. Note this is per tool call, so a turn with many tool calls adds roughly `calls × ~50 ms` of overhead (e.g. ~1 s across 20 calls) — small relative to model latency, but real.
 - **Observe-only first session:** the default `mode: "observe"` logs what would be blocked without blocking it. You opt into `mode: "enforce"` after seeing the logs.
 - **Idempotent and reversible install:** `tokenwarden install` does not duplicate hook entries; `tokenwarden uninstall` removes exactly what it added.
 
@@ -118,11 +118,11 @@ Create `.tokenwarden.json` in your project (or `~/.tokenwarden.json` for user-wi
 {
   "mode": "observe",
   "budgets": {
-    "session": { "usd": 5, "tokens": null },
-    "daily": { "usd": 25, "tokens": null },
-    "project": { "usd": null, "tokens": null },
+    "session": { "usd": 5 },
+    "daily": { "usd": 25 },
+    "project": { "usd": null },
     "perModel": {
-      "opus": { "usd": 10, "tokens": null }
+      "opus": { "usd": 10 }
     }
   },
   "compaction": {
@@ -139,8 +139,7 @@ Create `.tokenwarden.json` in your project (or `~/.tokenwarden.json` for user-wi
     "refuseUnscopedSearch": true,
     "bashMaxTimeoutMs": 600000
   },
-  "pricingOverrides": {},
-  "countSubagentSpend": true
+  "pricingOverrides": {}
 }
 ```
 
@@ -160,7 +159,8 @@ Create `.tokenwarden.json` in your project (or `~/.tokenwarden.json` for user-wi
 | `bloat.readMaxLines` | `2000` | Cap Read.limit via modifiedInput |
 | `bloat.refuseUnscopedSearch` | `true` | Refuse Grep/Glob with no path constraint |
 | `bloat.bashMaxTimeoutMs` | `600000` | Cap Bash timeout |
-| `countSubagentSpend` | `true` | Count isSidechain subagent spend toward parent budget |
+
+> Subagent (`isSidechain`) spend always counts toward the parent session/project budget — this is inherent to the live `cost.total_cost_usd` signal and is what makes the runaway fan-out scenario enforceable.
 
 ---
 
@@ -196,15 +196,29 @@ All cost figures tokenwarden shows are **estimates**. Two reasons:
 
 ## Benchmarks
 
-See [`benchmarks/`](benchmarks/) for the full methodology, raw logs, and the reproducible harness.
+> **Status: harness shipped, numbers pending.** tokenwarden ships the reproducible
+> measurement harness in [`benchmarks/`](benchmarks/) — but it does **not** yet
+> publish verified savings figures. We will not quote a savings percentage until
+> real runs back it (the same discipline that makes a flat "60–80%" claim
+> indefensible). `benchmarks/results/` is populated by running the harness; it is
+> intentionally empty in the repo until verified runs land before launch.
 
-**Honest headlines from the benchmark suite:**
+The harness measures token spend **with and without** tokenwarden across a fixed
+suite of representative tasks (bugfix, feature-add, refactor, subagent fan-out,
+MCP-heavy, long session) at N ≥ 6 runs each, same model and prompts, pinned
+Claude Code version, measured from the JSONL logs (the same source ccusage reads),
+reported as **median + range per scenario** with raw logs published.
 
-- **30–50% lower token spend on typical sessions** (bugfix, feature-add, refactor tasks)
-- **Up to ~70% on MCP-heavy and long-running agentic sessions** where argument-bloat prevention has the largest effect
-- **Caps runaway sessions before they cost you $1,000s** — the enforcement scenario that justifies the tool for unattended agent workflows
+**Targets we expect the data to support (to be validated, not yet measured):**
 
-Numbers are medians across N >= 6 runs per scenario, WITH and WITHOUT tokenwarden, same model and prompts, pinned Claude Code version. Variance is disclosed. Raw logs are published in `benchmarks/results/`.
+- 30–50% lower token spend on typical sessions
+- up to ~70% on MCP-heavy / long-running agentic sessions, where argument-bloat
+  prevention has the largest effect
+- the qualitative win that needs no benchmark: **a hard cap stops a runaway
+  unattended session before it costs $1,000s**
+
+See [`benchmarks/README.md`](benchmarks/README.md) for the methodology and how to
+reproduce.
 
 ---
 

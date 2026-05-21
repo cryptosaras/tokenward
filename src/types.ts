@@ -8,10 +8,13 @@
 /** How tokenwarden behaves when a rule fires. */
 export type Mode = "observe" | "enforce";
 
-/** A single budget cap. `null` means "no cap on this dimension". */
+/**
+ * A single budget cap in USD. `null` means "no cap".
+ * v0.1 enforces dollar caps only — the reliable live signal is `cost.total_cost_usd`
+ * from the statusline, not a cumulative token count. (Token-count caps are deferred.)
+ */
 export interface Budget {
   usd: number | null;
-  tokens: number | null;
 }
 
 export interface Budgets {
@@ -54,8 +57,6 @@ export interface Config {
   bloat: BloatConfig;
   /** Per-model price overrides (negotiated rates), keyed by model id. */
   pricingOverrides: Record<string, Partial<ModelPricing>>;
-  /** Subagent (isSidechain) spend counts toward the parent budget (PLAN §10). */
-  countSubagentSpend: boolean;
 }
 
 // ---------------------------------------------------------------------------
