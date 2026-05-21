@@ -1,0 +1,40 @@
+{
+  "name": "tokenwarden",
+  "version": "0.1.0",
+  "description": "A token-budget enforcer for Claude Code. ccusage tells you what you spent; tokenwarden stops you from overspending.",
+  "type": "module",
+  "bin": {
+    "tokenwarden": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --experimental-test-coverage",
+    "test:run": "node --test",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "claude-code",
+    "claude-usage",
+    "claude-code-hooks",
+    "cost-optimization",
+    "token-budget",
+    "cli",
+    "ai-agents"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.7.0"
+  }
+}
