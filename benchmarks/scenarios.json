@@ -1,0 +1,66 @@
+[
+  {
+    "id": "bugfix-ts",
+    "title": "TypeScript bug fix",
+    "category": "bugfix",
+    "description": "Fix a failing unit test in a TypeScript project. Prompt: 'The test in src/__tests__/parser.test.ts is failing. Find the root cause and fix it. Run the tests to confirm.'",
+    "expectedTokenRange": "5000-15000",
+    "notes": "Baseline task. Tokenwarden effect: Read.limit cap prevents loading entire large source files. Grep scope enforcement reduces tool-call output."
+  },
+  {
+    "id": "feature-add-api",
+    "title": "Add a REST endpoint",
+    "category": "feature-add",
+    "description": "Add a new GET /health endpoint to an Express app. Prompt: 'Add a /health endpoint to src/server.ts that returns {status: \"ok\", uptime: process.uptime()} as JSON. Add a test for it.'",
+    "expectedTokenRange": "8000-20000",
+    "notes": "Moderate context. Effect from Read cap and Grep scoping on the existing codebase scan."
+  },
+  {
+    "id": "refactor-module",
+    "title": "Refactor a module",
+    "category": "refactor",
+    "description": "Refactor a utility module to eliminate duplication. Prompt: 'Refactor src/utils/ to consolidate the three similar string-normalizing functions into one. Preserve all callers. Run tests.'",
+    "expectedTokenRange": "10000-30000",
+    "notes": "Multi-file read pattern. Bloat caps have significant effect on codebase-wide Grep calls."
+  },
+  {
+    "id": "subagent-fanout",
+    "title": "Subagent fan-out (parallel tasks)",
+    "category": "subagent-fanout",
+    "description": "A task that spawns multiple subagents. Prompt: 'Audit the entire codebase: (1) find all TODO comments, (2) find all console.log calls, (3) list files with no test coverage. Report a summary.'",
+    "expectedTokenRange": "30000-100000",
+    "notes": "The key scenario for countSubagentSpend enforcement. Without tokenwarden, each subagent reads files without limits. With tokenwarden, Read.limit and Grep scoping cap each subagent independently. Budget gate may trip before all three complete."
+  },
+  {
+    "id": "mcp-heavy",
+    "title": "MCP-heavy session (web + file tools)",
+    "category": "mcp-heavy",
+    "description": "A task mixing WebFetch, Bash, and file tools. Prompt: 'Research the latest semver spec at semver.org, then update our version parsing in src/version.ts to be fully compliant. Run tests.'",
+    "expectedTokenRange": "20000-60000",
+    "notes": "WebFetch truncation and Read.limit cap have the largest effect here. Context accumulates quickly without bloat controls."
+  },
+  {
+    "id": "long-session-explore",
+    "title": "Long exploratory session",
+    "category": "long-session",
+    "description": "A broad codebase exploration task left to run without interruption. Prompt: 'Thoroughly understand the architecture of this codebase. Read the main entry points, follow the dependency graph, and produce a written architecture summary.'",
+    "expectedTokenRange": "50000-200000",
+    "notes": "The scenario with the highest variance. Compaction coaching at 80% context fires here. Without tokenwarden, unrestricted Read calls can exhaust the context window. This scenario shows the largest delta between with/without in long runs."
+  },
+  {
+    "id": "test-generation",
+    "title": "Generate test suite",
+    "category": "feature-add",
+    "description": "Generate comprehensive tests for an existing module. Prompt: 'Write a complete test suite for src/accounting/pricing.ts. Cover all exported functions and edge cases. Use the existing test style.'",
+    "expectedTokenRange": "10000-25000",
+    "notes": "Read-heavy before writing. Bloat cap on Read.limit prevents redundant full-file loads."
+  },
+  {
+    "id": "debug-bash-heavy",
+    "title": "Bash-heavy debugging session",
+    "category": "bugfix",
+    "description": "Debug a runtime issue using shell commands. Prompt: 'The service crashes intermittently under load. Use Bash to run the test suite 10 times in a loop and capture the failures. Then diagnose the root cause.'",
+    "expectedTokenRange": "15000-40000",
+    "notes": "Bash timeout cap and Read.limit are the primary controls. Without tokenwarden, looping Bash commands with large output can generate significant token volume from tool results."
+  }
+]

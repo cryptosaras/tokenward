@@ -96,6 +96,8 @@ export interface CallUsage {
   cacheWrite5mTokens: number;
   cacheWrite1hTokens: number;
   webSearchRequests: number;
+  /** Model id from the assistant line (message.model), used to price the call. */
+  model?: string;
   /** Inference geo, e.g. "us" (1.1x multiplier). */
   inferenceGeo?: string;
   serviceTier?: string;
@@ -142,6 +144,7 @@ export interface LedgerEvent {
     | "bloat-cap"
     | "compaction-coach"
     | "compaction-veto"
+    | "session-finalize" // SessionEnd/Stop bookkeeping; never a block
     | "would-block"; // observe mode: what enforce mode would have done
   detail: string;
   estUsd?: number;

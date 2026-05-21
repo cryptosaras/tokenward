@@ -17,8 +17,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --experimental-test-coverage",
-    "test:run": "node --test",
+    "test": "node --import tsx --test test/**/*.test.ts",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -35,6 +34,7 @@
   "devDependencies": {
     "@types/node": "^22.10.0",
     "esbuild": "^0.24.0",
+    "tsx": "^4.19.0",
     "typescript": "^5.7.0"
   }
 }
