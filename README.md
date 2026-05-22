@@ -2,6 +2,8 @@
 
 **ccusage tells you what you spent. tokenwarden stops you from overspending.**
 
+> **In a hurry?** See [QUICKSTART.md](QUICKSTART.md) — install + use in 30 seconds.
+
 tokenwarden is the only tool in the Claude Code ecosystem that **acts** on cost rather than reporting it. Every other tool in this space — ccusage, Claude-Code-Usage-Monitor, cc-budget — tells you what happened or warns you what might happen. tokenwarden hooks directly into Claude Code's event system and enforces hard budgets, intercepts expensive calls, caps argument bloat, and coaches compaction. It is designed to be complementary to ccusage: **track with ccusage, enforce with tokenwarden.**
 
 ![tokenwarden blocking an expensive Opus call](docs/demo.gif)
