@@ -78,6 +78,32 @@ Calls whose estimate falls below `escalation.trivialThresholdUsd` pass **silentl
 
 **What tokenwarden does not do:** it cannot prune or modify existing conversation history. It can only prevent future bloat at the point of the tool call, before output enters the context window.
 
+### 5. Subscription usage windows (Pro / Max 5x / Max 20x)
+
+If you're on a flat-fee plan, dollars aren't your constraint — you don't pay per token. You throttle against **usage windows**: a rolling **5-hour** window and a rolling **7-day** window. tokenwarden tracks your consumption against those windows so you can see how close you are to a throttle, and (in `enforce` mode) gate before you burn the rest of your quota on low-value work.
+
+Set your plan and the windows turn on:
+
+```json
+{ "subscription": { "plan": "max5x" } }
+```
+
+```
+tokenwarden: max5x 5-hour usage window — ~$24.10 API-equivalent used of an est.
+$25.00 ceiling. On a flat-fee plan this is throttle risk, not a bill (ceiling is
+an estimate). Slow down, switch to a cheaper model, start a fresh session, or set
+TOKENWARDEN_FORCE=1 to override.
+```
+
+There's no dollar budget here — the figure is **API-equivalent**: tokenwarden prices your token consumption at public API rates (the same number Claude Code's statusline reports for subscription accounts) and measures it within each rolling window. `tokenwarden status` shows both windows when a plan is set.
+
+**Two honest caveats, stated plainly:**
+
+- **The ceilings are estimates.** Anthropic does not publish hard 5-hour/weekly numbers, and they drift. The built-in per-plan ceilings are deliberately conservative starting points — **calibrate them to your own throttling** by setting `subscription.fiveHour.usd` / `subscription.weekly.usd` once you learn where you actually hit the wall.
+- **It's a local lower-bound.** tokenwarden only counts windows it observed on this machine via its statusline capture. It cannot see usage from other machines, claude.ai, or sessions before you installed it. Treat it as a floor, not a precise meter.
+
+`plan: null` (the default) keeps this off — API / pay-as-you-go users want the dollar `budgets` above instead.
+
 ### Cost-telemetry layer
 
 Tokenwarden reads the same `~/.claude/projects/**/*.jsonl` transcripts that ccusage reads, deduplicated by `requestId`. It also captures the live statusline JSON Claude Code emits (the more reliable real-time cost signal). All dollar figures are **estimates**, always labeled as such.
@@ -125,6 +151,11 @@ Create `.tokenwarden.json` in your project (or `~/.tokenwarden.json` for user-wi
       "opus": { "usd": 10 }
     }
   },
+  "subscription": {
+    "plan": null,
+    "fiveHour": { "usd": null },
+    "weekly": { "usd": null }
+  },
   "compaction": {
     "coachAtPercent": 80,
     "vetoAutoBelowPercent": 50
@@ -152,6 +183,9 @@ Create `.tokenwarden.json` in your project (or `~/.tokenwarden.json` for user-wi
 | `budgets.daily.usd` | `25` | Hard USD cap per calendar day |
 | `budgets.project.usd` | `null` | Hard USD cap for this project directory |
 | `budgets.perModel` | `{}` | Per-model caps keyed by model id substring |
+| `subscription.plan` | `null` | Flat-fee plan: `"pro"`, `"max5x"`, `"max20x"`, `"custom"`, or `null` (off) |
+| `subscription.fiveHour.usd` | `null` | Rolling 5-hour ceiling (API-equiv USD); `null` → built-in estimate for the plan |
+| `subscription.weekly.usd` | `null` | Rolling 7-day ceiling (API-equiv USD); `null` → built-in estimate for the plan |
 | `compaction.coachAtPercent` | `80` | Inject /compact nudge at this context-fill % |
 | `compaction.vetoAutoBelowPercent` | `50` | Block auto-compaction that fires below this % |
 | `escalation.expensiveModels` | `["opus"]` | Model id substrings triggering escalation |
@@ -161,6 +195,8 @@ Create `.tokenwarden.json` in your project (or `~/.tokenwarden.json` for user-wi
 | `bloat.bashMaxTimeoutMs` | `600000` | Cap Bash timeout |
 
 > Subagent (`isSidechain`) spend always counts toward the parent session/project budget — this is inherent to the live `cost.total_cost_usd` signal and is what makes the runaway fan-out scenario enforceable.
+
+> The `subscription` ceilings are **estimates** — Anthropic publishes no hard 5-hour/weekly numbers. Leave `usd` as `null` to use the conservative built-in per-plan defaults, then set explicit values once you learn where you actually throttle. See [Subscription usage windows](#5-subscription-usage-windows-pro--max-5x--max-20x).
 
 ---
 
@@ -174,7 +210,7 @@ npx tokenwarden <command>
 |---|---|
 | `install` | Writes hook entries into the chosen settings.json scope; idempotent |
 | `uninstall` | Removes exactly the hook entries tokenwarden added; no other changes |
-| `status` | Shows mode, active budgets, and current session/day spend from the ledger |
+| `status` | Shows mode, active budgets, current session/day spend, and (if a plan is set) subscription usage windows |
 | `report` | Prints a spend summary parsed from JSONL transcripts (same data source as ccusage) |
 | `inspect` | Shows the raw ledger state and recent enforcement events |
 | `doctor` | Checks that hook entries are wired correctly and the binary is reachable |

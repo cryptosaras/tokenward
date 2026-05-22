@@ -34,6 +34,7 @@ The source brief (idea #01) specced: *"Auto-injects `/compact` prompts, blocks e
 2. **Compaction coach** — `UserPromptSubmit` injects a nudge ("at 80% of context budget — consider `/compact`"); `PreCompact` can veto runaway/wasteful auto-compaction. Never claim "auto-compact."
 3. **Expensive-call escalation** — when an expensive model is paired with a trivial action, deny with a one-keystroke escalation calibrated to the estimated dollar amount. Cheap actions pass silently.
 4. **Argument-bloat prevention** — `modifiedInput` on `PreToolUse` caps/rewrites tool inputs that would dump huge output into context (`Read.limit`, `WebFetch`, unscoped `Grep`/`Glob`, runaway `Bash`).
+5. **Subscription usage windows** *(added 2026-05-22)* — flat-fee plans (Pro / Max 5x / Max 20x) don't bill by the dollar; they throttle on a rolling **5-hour** and **7-day** window. tokenwarden estimates window consumption in **API-equivalent USD** (reusing the statusline cost signal, sliced into windows via cumulative-cost deltas) and gates on it alongside the dollar caps, honoring observe/enforce. `plan: null` (default) = off. Built-in per-plan ceilings are **estimates** (Anthropic publishes no hard numbers), user-calibratable; tracking is a **local lower-bound** (only what this machine observed). This is what makes tokenwarden useful to subscription users, for whom dollar caps measure money they don't pay.
 
 Plus a **cost-telemetry layer**: read the same `~/.claude/projects/**/*.jsonl` ccusage reads, dedup by `requestId`, price via a versioned table, expose retrospective spend.
 
@@ -141,6 +142,9 @@ Before writing any hook script, WebFetch the live docs and confirm exact contrac
 
 **Resolved (2026-05-21):**
 - ✅ **Subagent spend** (`isSidechain:true`) — **counts toward the parent session/project budget.** Matches the runaway-fan-out pain that is the strongest demand signal.
+
+**Resolved (2026-05-22):**
+- ✅ **Subscription usage windows** (§2 primitive 5) — landed. Unit is **API-equivalent USD over rolling 5h/7d windows** (not message-count): Anthropic's real limits are token/compute-weighted, and the statusline cost signal is already captured per-session with timestamps. A cost-sample ring buffer in the ledger gives true per-window deltas. Built-in tier ceilings are flagged estimates; off by default (`plan: null`).
 
 **Still open (defer until implementation is greenlit):**
 1. **v0.1 scope:** Budget Gate + Compaction Coach first (headline), defer bloat-prevention + escalation to v0.2? Or all four at once?
