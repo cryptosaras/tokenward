@@ -49,6 +49,19 @@ export function localDate(epochMs: number = Date.now()): string {
   return `${y}-${m}-${day}`;
 }
 
+/**
+ * Coarse model family from a model id, for per-class usage windows. Anthropic's
+ * Nov-2025 update gave Sonnet and Opus independent weekly limits, so we bucket
+ * spend by class even though v1 enforces one combined ceiling.
+ */
+export function modelClass(modelId: string | undefined): string {
+  const id = (modelId ?? "").toLowerCase();
+  if (id.includes("opus")) return "opus";
+  if (id.includes("sonnet")) return "sonnet";
+  if (id.includes("haiku")) return "haiku";
+  return "other";
+}
+
 /** Format USD for human-facing reasons. Always prefixed to read as an estimate. */
 export function usd(n: number): string {
   if (n >= 100) return `$${n.toFixed(0)}`;

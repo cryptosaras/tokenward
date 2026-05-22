@@ -61,6 +61,10 @@ class FakeLedger implements Ledger {
       sessionUsd: s?.costUsd ?? 0,
       dailyUsd: s?.costUsd ?? 0,
       projectUsd,
+      fiveHourUsd: 0,
+      weeklyUsd: 0,
+      fiveHourByClass: {},
+      weeklyByClass: {},
     };
   }
 }

@@ -6,7 +6,7 @@ import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { CallUsage } from "./types.js";
-import { loadConfig, projectConfigPath } from "./config.js";
+import { loadConfig, projectConfigPath, resolveUsageCaps } from "./config.js";
 import { openLedger, ledgerPath } from "./accounting/ledger.js";
 import {
   stateDir,
@@ -87,6 +87,20 @@ export function status(cwd: string = process.cwd()): number {
   out(
     `    project:  ${usd(agg.projectUsd)} / ${capLabel(config.budgets.project.usd)}${pctOf(agg.projectUsd, config.budgets.project.usd)}`,
   );
+
+  // Subscription usage windows — only shown when a plan is configured.
+  if (config.subscription.plan) {
+    const caps = resolveUsageCaps(config);
+    out("");
+    out(`  subscription usage  (plan: ${config.subscription.plan}; API-equivalent estimate, local lower-bound):`);
+    out(
+      `    last 5h:  ${usd(agg.fiveHourUsd)} / ${capLabel(caps.fiveHourUsd)}${pctOf(agg.fiveHourUsd, caps.fiveHourUsd)}`,
+    );
+    out(
+      `    last 7d:  ${usd(agg.weeklyUsd)} / ${capLabel(caps.weeklyUsd)}${pctOf(agg.weeklyUsd, caps.weeklyUsd)}`,
+    );
+    out("    (ceilings are ESTIMATES — calibrate to your own throttling.)");
+  }
   out("");
 
   const settingsPath = resolveSettingsPath({ cwd });
@@ -327,6 +341,15 @@ const STARTER_CONFIG = `{
     "project": { "usd": null },
     "// perModel": "cap by model-id substring, e.g. { \\"opus\\": { \\"usd\\": 10 } }",
     "perModel": {}
+  },
+
+  "// subscription": "flat-fee plan usage windows (Pro/Max). plan:null = OFF (use $ budgets).",
+  "// subscription.plan": "null | \\"pro\\" | \\"max5x\\" | \\"max20x\\" | \\"custom\\"",
+  "// subscription.windows": "API-equivalent USD ceilings; null = built-in ESTIMATE for the plan. Calibrate to your own throttling.",
+  "subscription": {
+    "plan": null,
+    "fiveHour": { "usd": null },
+    "weekly": { "usd": null }
   },
 
   "compaction": {

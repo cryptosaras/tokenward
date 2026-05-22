@@ -7,8 +7,12 @@ import type {
   Ledger,
   UserPromptSubmitInput,
 } from "../types.js";
-import { usd } from "../util.js";
-import { checkBudgets, type HandlerOpts } from "./pretool.js";
+import {
+  checkBudgets,
+  checkUsageWindows,
+  violationReason,
+  type HandlerOpts,
+} from "./pretool.js";
 
 function coachText(percent: number, threshold: number): string {
   return `tokenwarden: context is at ${Math.round(percent)}% (coach threshold ${threshold}%). Consider running /compact to shrink the conversation before it gets expensive. (tokenwarden cannot run commands for you.)`;
@@ -39,10 +43,10 @@ export function handleUserPromptSubmit(
   const modelId = session?.modelId ?? "";
   const agg = ledger.aggregates(sessionId, cwd);
 
-  // 1) Hard budget gate -----------------------------------------------------
-  const violation = checkBudgets(config, agg, modelId);
+  // 1) Hard budget gate — dollar budgets first, then usage windows ----------
+  const violation = checkBudgets(config, agg, modelId) ?? checkUsageWindows(config, agg);
   if (violation) {
-    const reason = `tokenwarden: ${violation.label} reached — spent ${usd(violation.spent)} of ${usd(violation.cap)}. Run /compact, start a fresh session, or set TOKENWARDEN_FORCE=1 to override.`;
+    const reason = violationReason(violation);
     if (enforce) {
       ledger.recordEvent({
         at: Date.now(),

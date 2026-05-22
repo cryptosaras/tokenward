@@ -49,9 +49,39 @@ export interface BloatConfig {
   bashMaxTimeoutMs: number | null;
 }
 
+/** Subscription plan tiers. There are several, with different ceilings. */
+export type PlanTier = "pro" | "max5x" | "max20x" | "custom";
+
+/** A rolling-window usage ceiling, in API-equivalent USD. `null` = no cap. */
+export interface UsageWindow {
+  usd: number | null;
+}
+
+/**
+ * Subscription usage tracking. Flat-fee plans (Pro / Max 5x / Max 20x) are not
+ * billed by the dollar — they throttle against *usage windows*: a rolling
+ * 5-hour window and a rolling 7-day (weekly) window. Anthropic exposes no live
+ * counter for these, so tokenwarden ESTIMATES window consumption in
+ * API-equivalent USD from its own statusline capture. This is a LOCAL
+ * lower-bound: it cannot see other machines, claude.ai, or pre-install usage.
+ *
+ * `plan: null` (the default) disables this entirely — API/pay-as-you-go users
+ * want the dollar `budgets`, not usage windows.
+ */
+export interface SubscriptionConfig {
+  /** Which plan you're on. `null` = not a subscriber → feature off. */
+  plan: PlanTier | null;
+  /** Rolling 5-hour ceiling. `null` + a known plan → built-in estimate. */
+  fiveHour: UsageWindow;
+  /** Rolling 7-day ceiling. `null` + a known plan → built-in estimate. */
+  weekly: UsageWindow;
+}
+
 export interface Config {
   mode: Mode;
   budgets: Budgets;
+  /** Flat-fee subscription usage windows (Pro/Max). Off unless `plan` is set. */
+  subscription: SubscriptionConfig;
   compaction: CompactionConfig;
   escalation: EscalationConfig;
   bloat: BloatConfig;
@@ -135,6 +165,21 @@ export interface SessionRecord {
   startDate: string;
 }
 
+/**
+ * A timestamped cumulative-cost sample. Window math needs DELTAS, not the raw
+ * cumulative `SessionRecord.costUsd`: a long-running session's total cannot be
+ * sliced into a 5-hour window without these. Window spend for a session is
+ * `(latest cum ≤ now) − (latest cum ≤ now − window)`.
+ */
+export interface CostSample {
+  at: number;
+  sessionId: string;
+  /** Cumulative session cost (USD) at `at`. Never used raw — only as a delta. */
+  cumUsd: number;
+  /** Model id active at capture, for per-class window aggregation. */
+  modelId: string;
+}
+
 /** A recorded enforcement decision — powers observe-mode logging and `report`. */
 export interface LedgerEvent {
   at: number;
@@ -156,16 +201,29 @@ export interface LedgerState {
   sessions: Record<string, SessionRecord>;
   /** Capped ring buffer of recent events. */
   events: LedgerEvent[];
+  /** Capped ring of cumulative-cost samples for rolling-window math. */
+  costSamples?: CostSample[];
 }
 
 /**
  * Aggregates computed on read. Hooks call these for O(1)-ish enforcement.
  * `project` is keyed by cwd path; `daily` by local YYYY-MM-DD.
+ *
+ * The window figures (`fiveHourUsd`, `weeklyUsd`) are API-equivalent estimates
+ * of subscription usage windows, derived from cost-sample deltas.
  */
 export interface LedgerAggregates {
   sessionUsd: number;
   dailyUsd: number;
   projectUsd: number;
+  /** API-equivalent spend in the rolling 5-hour window (subscription usage). */
+  fiveHourUsd: number;
+  /** API-equivalent spend in the rolling 7-day window (subscription usage). */
+  weeklyUsd: number;
+  /** 5-hour window spend split by model class (opus/sonnet/haiku/other). */
+  fiveHourByClass: Record<string, number>;
+  /** 7-day window spend split by model class. */
+  weeklyByClass: Record<string, number>;
 }
 
 export interface Ledger {

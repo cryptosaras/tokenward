@@ -17,6 +17,7 @@ import type {
 import { usd } from "../util.js";
 import { preToolDecision } from "./_wrap.js";
 import { estimateCallUsd } from "../accounting/pricing.js";
+import { resolveUsageCaps } from "../config.js";
 
 export interface HandlerOpts {
   /** TOKENWARDEN_FORCE=1 — skip all enforcement, still record events. */
@@ -31,6 +32,12 @@ export interface BudgetViolation {
   label: string;
   cap: number;
   spent: number;
+  /**
+   * "spend" = real dollar budget (default). "usage" = a subscription usage
+   * window, where the figure is API-equivalent estimate and the consequence is
+   * throttling, not a bill — the reason text differs accordingly.
+   */
+  framing?: "spend" | "usage";
 }
 
 /**
@@ -70,7 +77,39 @@ function checkPerModel(
   return null;
 }
 
-function budgetReason(v: BudgetViolation): string {
+/**
+ * Evaluate subscription usage windows (5-hour, then weekly). Separate from
+ * `checkBudgets` on purpose: dollar budgets are real money; usage windows are
+ * API-equivalent estimates of a flat-fee plan's throttle. Returns the first
+ * breached window, or null (also null when no plan is configured).
+ */
+export function checkUsageWindows(
+  config: Config,
+  agg: { fiveHourUsd: number; weeklyUsd: number },
+): BudgetViolation | null {
+  const plan = config.subscription.plan;
+  if (!plan) return null;
+  const caps = resolveUsageCaps(config);
+  const check = (
+    cap: number | null,
+    spent: number,
+    label: string,
+  ): BudgetViolation | null =>
+    cap != null && cap > 0 && spent >= cap
+      ? { label, cap, spent, framing: "usage" }
+      : null;
+
+  return (
+    check(caps.fiveHourUsd, agg.fiveHourUsd, `${plan} 5-hour usage window`) ??
+    check(caps.weeklyUsd, agg.weeklyUsd, `${plan} weekly usage window`)
+  );
+}
+
+/** Human reason for a breached budget or usage window, framed to match. */
+export function violationReason(v: BudgetViolation): string {
+  if (v.framing === "usage") {
+    return `tokenwarden: ${v.label} — ~${usd(v.spent)} API-equivalent used of an est. ${usd(v.cap)} ceiling. On a flat-fee plan this is throttle risk, not a bill (ceiling is an estimate). Slow down, switch to a cheaper model, start a fresh session, or ${FORCE_HINT}.`;
+  }
   return `tokenwarden: ${v.label} reached — spent ${usd(v.spent)} of ${usd(v.cap)}. Run /compact, start a fresh session, or ${FORCE_HINT}.`;
 }
 
@@ -109,10 +148,10 @@ export function handlePreToolUse(
   const modelId = ledger.read().sessions[sessionId]?.modelId ?? "";
   const agg = ledger.aggregates(sessionId, cwd);
 
-  // 1) Budget gate (deny) ---------------------------------------------------
-  const violation = checkBudgets(config, agg, modelId);
+  // 1) Budget gate (deny) — dollar budgets first, then usage windows ---------
+  const violation = checkBudgets(config, agg, modelId) ?? checkUsageWindows(config, agg);
   if (violation) {
-    const reason = budgetReason(violation);
+    const reason = violationReason(violation);
     if (enforce) {
       ledger.recordEvent({
         at: Date.now(),
